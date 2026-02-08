@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}Task #{{ task.id }} — {{ task.title }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Task #{{ task.id }}</h1>
+  <a href="{{ url_for('tasks.task_list') }}" class="btn btn-secondary">Back to Tasks</a>
+</div>
+
+<!-- ============================================================
+     TASK DETAILS
+     All data is rendered server-side. No JavaScript needed.
+     ============================================================ -->
+<div class="detail-card">
+  <div class="detail-row">
+    <strong>Title:</strong>
+    <span>{{ task.title }}</span>
+  </div>
+  <div class="detail-row">
+    <strong>Description:</strong>
+    <span>{{ task.description or "No description provided" }}</span>
+  </div>
+  <div class="detail-row">
+    <strong>Status:</strong>
+    <span class="badge badge-{{ task.status }}">{{ task.status | replace("_", " ") | title }}</span>
+  </div>
+  <div class="detail-row">
+    <strong>Priority:</strong>
+    <span class="badge badge-{{ task.priority }}">{{ task.priority | title }}</span>
+  </div>
+  <div class="detail-row">
+    <strong>Department:</strong>
+    <span>{{ task.department }}</span>
+  </div>
+  <div class="detail-row">
+    <strong>Assigned To:</strong>
+    <span>{{ task.assigned_name or "Unassigned" }}</span>
+  </div>
+  <div class="detail-row">
+    <strong>Client:</strong>
+    <span>{{ task.client_name or "None" }}</span>
+  </div>
+  <div class="detail-row">
+    <strong>Due Date:</strong>
+    <span>{{ task.due_date or "Not set" }}</span>
+  </div>
+  <div class="detail-row">
+    <strong>Created:</strong>
+    <span>{{ task.created_at }}</span>
+  </div>
+  <div class="detail-row">
+    <strong>Last Updated:</strong>
+    <span>{{ task.updated_at or "Never" }}</span>
+  </div>
+</div>
+
+<!-- ============================================================
+     FILE ATTACHMENTS
+     Upload uses enctype="multipart/form-data" — the browser sends
+     the file as binary data, not URL-encoded text.
+     Download is a simple GET link.
+     Delete is a POST form (PRG pattern).
+     ============================================================ -->
+<div class="attachments-section">
+  <h2>Attachments ({{ attachments | length }})</h2>
+
+  <!-- Upload form -->
+  <form method="POST" action="{{ url_for('attachments.upload_file', task_id=task.id) }}"
+        enctype="multipart/form-data" class="upload-form">
+    <input type="file" name="file" required class="form-input">
+    <button type="submit" class="btn btn-primary">Upload File</button>
+  </form>
+
+  {% if attachments %}
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Filename</th>
+          <th>Size</th>
+          <th>Uploaded By</th>
+          <th>Date</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for att in attachments %}
+          <tr>
+            <td>{{ att.original_filename }}</td>
+            <td>{{ "%.1f" | format(att.file_size / 1024) }} KB</td>
+            <td>{{ att.uploader_name or "Unknown" }}</td>
+            <td>{{ att.uploaded_at }}</td>
+            <td class="actions-cell">
+              <a href="{{ url_for('attachments.download_file', filename=att.filename) }}"
+                 class="btn btn-small">Download</a>
+              {% if att.uploaded_by == user_id or role in ("admin", "manager") %}
+                <form method="POST"
+                      action="{{ url_for('attachments.delete_attachment', attachment_id=att.id) }}"
+                      onsubmit="return confirm('Delete this file?')" style="display:inline">
+                  <button type="submit" class="btn btn-small btn-danger">Delete</button>
+                </form>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="empty-message">No attachments yet. Use the form above to upload a file.</p>
+  {% endif %}
+</div>
+{% endblock %}

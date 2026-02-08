@@ -7,6 +7,7 @@ as Flask routes that render Jinja2 templates.
 
 Server-rendered route conventions:
     GET    /tasks              → list all tasks (renders tasks.html)
+    GET    /tasks/<id>         → task detail with attachments (renders task_detail.html)
     POST   /tasks/create       → create a task (redirects to /tasks)
     POST   /tasks/<id>/edit    → update a task (redirects to /tasks)
     POST   /tasks/<id>/status  → update status only — staff (redirects to /tasks)
@@ -107,6 +108,60 @@ def task_list():
             "priority": request.args.get("priority", ""),
             "department": request.args.get("department", ""),
         },
+    )
+
+
+@tasks_bp.route("/<int:task_id>", methods=["GET"])
+@login_required
+def task_detail(task_id):
+    """View a single task with its attachments.
+
+    Staff can only view tasks assigned to them.
+    The template shows upload/download forms for file attachments.
+    """
+    conn = get_db()
+
+    task = conn.execute(
+        """
+        SELECT t.*, u.full_name AS assigned_name, c.company_name AS client_name
+        FROM tasks t
+        LEFT JOIN users u ON t.assigned_to = u.id
+        LEFT JOIN clients c ON t.client_id = c.id
+        WHERE t.id = ?
+        """,
+        (task_id,),
+    ).fetchone()
+
+    if task is None:
+        conn.close()
+        flash("Task not found", "error")
+        return redirect(url_for("tasks.task_list"))
+
+    # Staff can only view their own tasks
+    if session.get("role") == "staff" and task["assigned_to"] != session.get("user_id"):
+        conn.close()
+        flash("You can only view tasks assigned to you", "error")
+        return redirect(url_for("tasks.task_list"))
+
+    # Get attachments for this task
+    attachments = conn.execute(
+        """
+        SELECT a.*, u.full_name AS uploader_name
+        FROM attachments a
+        LEFT JOIN users u ON a.uploaded_by = u.id
+        WHERE a.task_id = ?
+        ORDER BY a.uploaded_at DESC
+        """,
+        (task_id,),
+    ).fetchall()
+    conn.close()
+
+    return render_template(
+        "task_detail.html",
+        task=task,
+        attachments=attachments,
+        role=session.get("role"),
+        user_id=session.get("user_id"),
     )
 
 

@@ -79,7 +79,7 @@
     {% for task in tasks %}
       <tr>
         <td>{{ task.id }}</td>
-        <td>{{ task.title }}</td>
+        <td><a href="{{ url_for('tasks.task_detail', task_id=task.id) }}">{{ task.title }}</a></td>
         <td><span class="badge badge-{{ task.status }}">{{ task.status | replace("_", " ") | title }}</span></td>
         <td><span class="badge badge-{{ task.priority }}">{{ task.priority | title }}</span></td>
         <td>{{ task.department }}</td>
