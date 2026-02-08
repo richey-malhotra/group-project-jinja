@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>{% if role == "staff" %}My Dashboard{% else %}Dashboard{% endif %}</h1>
+</div>
+
+<!-- ============================================================
+     SUMMARY CARDS
+     Each card shows a single metric. The values are rendered
+     server-side by Jinja2 — no JavaScript needed for this section.
+     ============================================================ -->
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-value">{{ summary.total_tasks }}</div>
+    <div class="stat-label">Total Tasks</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">{{ summary.open_tasks }}</div>
+    <div class="stat-label">Open</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">{{ summary.in_progress_tasks }}</div>
+    <div class="stat-label">In Progress</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">{{ summary.completed_tasks }}</div>
+    <div class="stat-label">Completed</div>
+  </div>
+  <div class="stat-card warning">
+    <div class="stat-value">{{ summary.overdue_tasks }}</div>
+    <div class="stat-label">Overdue</div>
+  </div>
+  <div class="stat-card danger">
+    <div class="stat-value">{{ summary.urgent_tasks }}</div>
+    <div class="stat-label">Urgent</div>
+  </div>
+
+  {% if role in ("admin", "manager") %}
+    <div class="stat-card">
+      <div class="stat-value">{{ summary.active_clients }}</div>
+      <div class="stat-label">Active Clients</div>
+    </div>
+  {% endif %}
+
+  {% if role == "admin" %}
+    <div class="stat-card">
+      <div class="stat-value">{{ summary.total_staff }}</div>
+      <div class="stat-label">Total Staff</div>
+    </div>
+  {% endif %}
+</div>
+
+<!-- ============================================================
+     CHARTS
+     Chart.js renders charts into <canvas> elements using JavaScript.
+     The data is passed from Python via Jinja2's tojson filter.
+
+     This is the ONLY section that requires JavaScript — Chart.js
+     needs a canvas context to draw. Everything else on this page
+     is pure server-rendered HTML.
+
+     Role-based visibility:
+       Admin:   4 charts (status, priority, department, workload)
+       Manager: 3 charts (status, priority, workload)
+       Staff:   2 charts (status, priority)
+     ============================================================ -->
+<div class="charts-grid">
+  <div class="chart-container">
+    <h3>Tasks by Status</h3>
+    <canvas id="statusChart"></canvas>
+  </div>
+
+  <div class="chart-container">
+    <h3>Tasks by Priority</h3>
+    <canvas id="priorityChart"></canvas>
+  </div>
+
+  {% if role == "admin" %}
+    <div class="chart-container">
+      <h3>Tasks by Department</h3>
+      <canvas id="departmentChart"></canvas>
+    </div>
+  {% endif %}
+
+  {% if role in ("admin", "manager") %}
+    <div class="chart-container">
+      <h3>Workload by Staff</h3>
+      <canvas id="workloadChart"></canvas>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Chart.js loaded from CDN — satisfies the "two programming languages" requirement -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+<script>
+  /**
+   * Pass Python data to JavaScript using Jinja2's tojson filter.
+   *
+   * {{ charts | tojson }} converts the Python dict to a JSON string
+   * that JavaScript can parse. Jinja2 auto-escapes the output to
+   * prevent XSS — even if the data contained malicious strings,
+   * tojson encodes them safely.
+   *
+   * This is the standard Flask pattern: compute on the server,
+   * render data into a <script> block, let JS handle visualisation.
+   */
+  const chartData = {{ charts | tojson }};
+  const userRole = "{{ role }}";
+  renderCharts(chartData, userRole);
+</script>
+{% endblock %}
