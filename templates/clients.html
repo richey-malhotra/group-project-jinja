@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+
+{% block title %}Client Management{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Client Management</h1>
+  <button class="btn btn-primary" onclick="document.getElementById('create-modal').showModal()">
+    + New Client
+  </button>
+</div>
+
+<!-- ============================================================
+     FILTER / SEARCH BAR
+     Same GET-based pattern as the tasks page.
+     ============================================================ -->
+<form method="GET" action="{{ url_for('clients.client_list') }}" class="filter-bar">
+  <input type="text" name="search" placeholder="Search company, contact name, or email..."
+         value="{{ filters.search }}" class="filter-input">
+
+  <select name="status" class="filter-select">
+    <option value="">All Statuses</option>
+    <option value="active" {% if filters.status == "active" %}selected{% endif %}>Active</option>
+    <option value="inactive" {% if filters.status == "inactive" %}selected{% endif %}>Inactive</option>
+  </select>
+
+  <select name="industry" class="filter-select">
+    <option value="">All Industries</option>
+    {% for ind in ["Accounting", "Legal", "Marketing", "Real Estate", "Technology"] %}
+      <option value="{{ ind }}" {% if filters.industry == ind %}selected{% endif %}>
+        {{ ind }}
+      </option>
+    {% endfor %}
+  </select>
+
+  <button type="submit" class="btn btn-secondary">Filter</button>
+  <a href="{{ url_for('clients.client_list') }}" class="btn btn-secondary">Clear</a>
+</form>
+
+<!-- ============================================================
+     CLIENT TABLE
+     ============================================================ -->
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Company</th>
+      <th>Contact</th>
+      <th>Email</th>
+      <th>Phone</th>
+      <th>Industry</th>
+      <th>Status</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for client in clients %}
+      <tr>
+        <td>{{ client.id }}</td>
+        <td>{{ client.company_name }}</td>
+        <td>{{ client.contact_name }}</td>
+        <td>{{ client.contact_email }}</td>
+        <td>{{ client.contact_phone or "—" }}</td>
+        <td>{{ client.industry or "—" }}</td>
+        <td><span class="badge badge-{{ client.status }}">{{ client.status | title }}</span></td>
+        <td class="actions-cell">
+          <button class="btn btn-small"
+                  onclick="openEditClient({{ client.id }}, {{ client.company_name | tojson }}, {{ client.contact_name | tojson }}, {{ client.contact_email | tojson }}, {{ client.contact_phone | default('', true) | tojson }}, {{ client.industry | default('', true) | tojson }}, {{ client.status | tojson }}, {{ client.notes | default('', true) | tojson }})">
+            Edit
+          </button>
+          {% if role == "admin" %}
+            <form method="POST" action="{{ url_for('clients.delete_client', client_id=client.id) }}"
+                  onsubmit="return confirm('Delete this client?')" style="display:inline">
+              <button type="submit" class="btn btn-small btn-danger">Delete</button>
+            </form>
+          {% endif %}
+        </td>
+      </tr>
+    {% else %}
+      <tr>
+        <td colspan="8" class="empty-message">No clients found.</td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<!-- ============================================================
+     CREATE CLIENT MODAL
+     ============================================================ -->
+<dialog id="create-modal" class="modal">
+  <form method="POST" action="{{ url_for('clients.create_client') }}">
+    <h2>Add New Client</h2>
+
+    <label for="create-company">Company Name *</label>
+    <input type="text" id="create-company" name="company_name" required class="form-input">
+
+    <label for="create-contact">Contact Name *</label>
+    <input type="text" id="create-contact" name="contact_name" required class="form-input">
+
+    <label for="create-email">Contact Email *</label>
+    <input type="email" id="create-email" name="contact_email" required class="form-input">
+
+    <label for="create-phone">Phone</label>
+    <input type="text" id="create-phone" name="contact_phone" class="form-input">
+
+    <label for="create-industry">Industry</label>
+    <select id="create-industry" name="industry" class="form-input">
+      <option value="">Select...</option>
+      <option value="Accounting">Accounting</option>
+      <option value="Legal">Legal</option>
+      <option value="Marketing">Marketing</option>
+      <option value="Real Estate">Real Estate</option>
+      <option value="Technology">Technology</option>
+    </select>
+
+    <label for="create-status">Status</label>
+    <select id="create-status" name="status" class="form-input">
+      <option value="active" selected>Active</option>
+      <option value="inactive">Inactive</option>
+    </select>
+
+    <label for="create-notes">Notes</label>
+    <textarea id="create-notes" name="notes" rows="3" class="form-input"></textarea>
+
+    <div class="modal-actions">
+      <button type="submit" class="btn btn-primary">Create Client</button>
+      <button type="button" class="btn btn-secondary"
+              onclick="document.getElementById('create-modal').close()">Cancel</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ============================================================
+     EDIT CLIENT MODAL
+     ============================================================ -->
+<dialog id="edit-modal" class="modal">
+  <form method="POST" id="edit-form">
+    <h2>Edit Client</h2>
+
+    <label for="edit-company">Company Name *</label>
+    <input type="text" id="edit-company" name="company_name" required class="form-input">
+
+    <label for="edit-contact">Contact Name *</label>
+    <input type="text" id="edit-contact" name="contact_name" required class="form-input">
+
+    <label for="edit-email">Contact Email *</label>
+    <input type="email" id="edit-email" name="contact_email" required class="form-input">
+
+    <label for="edit-phone">Phone</label>
+    <input type="text" id="edit-phone" name="contact_phone" class="form-input">
+
+    <label for="edit-industry">Industry</label>
+    <select id="edit-industry" name="industry" class="form-input">
+      <option value="">Select...</option>
+      <option value="Accounting">Accounting</option>
+      <option value="Legal">Legal</option>
+      <option value="Marketing">Marketing</option>
+      <option value="Real Estate">Real Estate</option>
+      <option value="Technology">Technology</option>
+    </select>
+
+    <label for="edit-status">Status</label>
+    <select id="edit-status" name="status" class="form-input">
+      <option value="active">Active</option>
+      <option value="inactive">Inactive</option>
+    </select>
+
+    <label for="edit-notes">Notes</label>
+    <textarea id="edit-notes" name="notes" rows="3" class="form-input"></textarea>
+
+    <div class="modal-actions">
+      <button type="submit" class="btn btn-primary">Save Changes</button>
+      <button type="button" class="btn btn-secondary"
+              onclick="document.getElementById('edit-modal').close()">Cancel</button>
+    </div>
+  </form>
+</dialog>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function openEditClient(id, company, contact, email, phone, industry, status, notes) {
+    document.getElementById("edit-form").action = "/clients/" + id + "/edit";
+    document.getElementById("edit-company").value = company;
+    document.getElementById("edit-contact").value = contact;
+    document.getElementById("edit-email").value = email;
+    document.getElementById("edit-phone").value = phone;
+    document.getElementById("edit-industry").value = industry;
+    document.getElementById("edit-status").value = status;
+    document.getElementById("edit-notes").value = notes;
+    document.getElementById("edit-modal").showModal();
+  }
+</script>
+{% endblock %}
