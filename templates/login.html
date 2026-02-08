@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}Login — MJ Limited Staff Portal{% endblock %}
+
+{% block content %}
+<article>
+    <header>
+        <h1>MJ Limited Staff Portal</h1>
+        <p>Sign in to access your dashboard</p>
+    </header>
+
+    <form method="POST" action="{{ url_for('auth.login') }}">
+        <label for="username">Username</label>
+        <input type="text" id="username" name="username" placeholder="Enter your username" required autofocus>
+
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" placeholder="Enter your password" required>
+
+        <button type="submit">Sign In</button>
+    </form>
+</article>
+{% endblock %}

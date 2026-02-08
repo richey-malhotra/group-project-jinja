@@ -1,0 +1,859 @@
+/*
+ * MJ Limited Staff Portal — Custom Styles
+ *
+ * HOW THIS FILE WORKS
+ * -------------------
+ * Pico CSS (loaded in the HTML <head>) handles the base styling automatically
+ * from semantic HTML elements like <nav>, <table>, <button>, and <dialog>.
+ * This file adds our customisations on top of Pico:
+ *
+ *   1. Brand colours via CSS custom properties (variables)
+ *   2. Layout utilities for dashboard cards and charts
+ *   3. Flash message styles for server-side feedback
+ *   4. Status/priority badges with colour coding
+ *   5. Loading and empty state indicators
+ *   6. Responsive design for tablets and phones
+ *
+ * V2 (JINJA) vs V1 (SPA) — CSS DIFFERENCES
+ * ------------------------------------------
+ * In V1 (the single-page app), JavaScript handles page updates and shows
+ * toast notifications. In V2 (server-rendered), Flask handles page loads
+ * and uses flash messages instead. This means:
+ *   - V2 has flash message styles (not in V1)
+ *   - V1 has toast notification + animation styles (not in V2)
+ *   - V1 has a loading spinner (not needed in V2 — pages arrive complete)
+ *
+ * CSS CUSTOM PROPERTIES (VARIABLES)
+ * ---------------------------------
+ * Variables are defined once in :root and reused everywhere with var().
+ * To change the brand colour across the entire site, update ONE value.
+ * This is the DRY principle applied to CSS — Don't Repeat Yourself.
+ *
+ * Example:  --mj-primary: #2e5090;
+ *           background: var(--mj-primary);  ← uses the variable
+ *
+ * SELECTORS EXPLAINED
+ * -------------------
+ * .class-name         → targets elements with that class
+ * .parent .child      → targets .child INSIDE .parent (descendant)
+ * .parent > .child    → targets .child that is a DIRECT child of .parent
+ * element.class       → targets that element with that class (e.g. nav a)
+ * .class:hover        → targets the element when the mouse is over it
+ * .class::backdrop    → targets a browser-generated overlay element
+ * @media (max-width)  → applies styles only below that screen width
+ */
+
+
+/* =========================================================================
+   SECTION 1: BRAND & THEME VARIABLES
+   =========================================================================
+   CSS custom properties (variables) let us define colours and values once
+   and reuse them throughout the stylesheet. If MJ Limited rebrands, we
+   change these values and the entire site updates automatically.
+
+   The :root selector targets the <html> element — the top of the document.
+   Variables defined here are available to every element on the page.
+   ========================================================================= */
+:root {
+    /* Primary brand colour palette — dark blue (MJ Limited's corporate colour) */
+    --mj-primary: #2e5090;          /* Main brand blue — used for nav, buttons, headings */
+    --mj-primary-light: #4a72b0;    /* Lighter shade — used for hover states */
+    --mj-primary-dark: #1a3666;     /* Darker shade — used for headings and emphasis */
+
+    /* Semantic colours — convey meaning through colour */
+    --mj-success: #4caf50;          /* Green — positive actions, completed status */
+    --mj-warning: #f9a825;          /* Amber — caution, overdue items */
+    --mj-danger: #d32f2f;           /* Red — errors, urgent priority, destructive actions */
+    --mj-info: #4895ef;             /* Blue — informational messages, open status */
+
+    /* Utility values — shared across multiple components */
+    --mj-bg-light: #f8f9fa;         /* Light grey background for table headers */
+    --mj-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);  /* Subtle shadow for depth */
+    --mj-radius: 0.5rem;            /* Rounded corners — consistent across all cards */
+
+    /* Override Pico's primary colour so its built-in components match our brand */
+    --pico-primary: var(--mj-primary);
+}
+
+
+/* =========================================================================
+   SECTION 2: GLOBAL LAYOUT
+   =========================================================================
+   These rules set up the overall page structure using CSS Flexbox.
+   Flexbox is a layout model that distributes space between elements
+   in a container — here we use it to push the footer to the bottom.
+   ========================================================================= */
+
+/* Make the page fill the full viewport height.
+   flex-direction: column stacks header, main, footer vertically. */
+body {
+    min-height: 100vh;              /* vh = viewport height (100% of the screen) */
+    display: flex;                  /* Enable flexbox layout */
+    flex-direction: column;         /* Stack children vertically */
+    margin: 0;                      /* Remove default browser margin */
+}
+
+/* The main content area grows to fill available space (flex: 1).
+   This pushes the footer to the bottom even when content is short. */
+main.container {
+    flex: 1;                        /* Grow to fill remaining vertical space */
+    padding-top: 1.5rem;            /* rem = relative to root font size (usually 16px) */
+    padding-bottom: 2rem;
+}
+
+
+/* =========================================================================
+   SECTION 3: NAVIGATION ENHANCEMENTS
+   =========================================================================
+   Pico CSS provides basic nav styling. We override it to add:
+   - MJ Limited's brand blue background
+   - White text for contrast (accessibility)
+   - A role badge showing the user's access level
+   ========================================================================= */
+nav {
+    background: var(--mj-primary);  /* Brand blue background */
+    padding: 0.75rem 1.5rem;        /* Internal spacing (vertical horizontal) */
+    box-shadow: var(--mj-shadow);   /* Subtle shadow below the nav bar */
+}
+
+nav ul {
+    margin: 0;                      /* Remove Pico's default list margin */
+}
+
+/* Force white text on all nav links and the brand name.
+   !important overrides Pico's default link colour. */
+nav a, nav strong {
+    color: #ffffff !important;
+    text-decoration: none;          /* Remove underlines from links */
+}
+
+/* Dim the link slightly on hover — gives visual feedback */
+nav a:hover {
+    opacity: 0.85;
+}
+
+/* Brand name styling */
+nav .brand {
+    font-size: 1.15rem;
+    font-weight: 700;               /* Bold */
+    letter-spacing: 0.02em;         /* Slight letter spacing for readability */
+}
+
+/* Role badge — a pill-shaped label showing the user's role.
+   Semi-transparent white background makes it visible but subtle. */
+nav .role-badge {
+    background: rgba(255, 255, 255, 0.2);  /* 20% opaque white */
+    padding: 0.15rem 0.5rem;
+    border-radius: 1rem;            /* Fully rounded corners (pill shape) */
+    font-size: 0.75rem;
+    margin-left: 0.5rem;
+    text-transform: capitalize;     /* First letter uppercase */
+    color: #ffffff;
+}
+
+/* Role-specific badge colours — visual distinction per access level.
+   Users instantly see their access tier at a glance.
+   This is a UI pattern called "ambient signalling" — conveying
+   information through colour without requiring the user to read text.
+
+   rgba() sets colour with transparency:
+   rgba(red, green, blue, alpha) where alpha 0=invisible, 1=solid */
+nav .role-admin {
+    background: rgba(211, 47, 47, 0.4);    /* Semi-transparent red */
+}
+
+nav .role-manager {
+    background: rgba(249, 168, 37, 0.4);   /* Semi-transparent amber */
+}
+
+nav .role-staff {
+    background: rgba(76, 175, 80, 0.4);    /* Semi-transparent green */
+}
+
+
+/* =========================================================================
+   SECTION 4: PAGE COMPONENTS
+   ========================================================================= */
+
+/* --- Subtitle --- */
+/* Used below dashboard headings to show role context (e.g. "Your Department") */
+.subtitle {
+    color: var(--pico-muted-color);  /* Pico's grey text colour */
+    margin-top: -0.5rem;             /* Pull up closer to the heading above */
+    margin-bottom: 1rem;
+    font-size: 0.95rem;
+}
+
+/* --- Page Header --- */
+/* Flex container that puts the page title on the left and action buttons
+   on the right, with wrapping on small screens. */
+.page-header {
+    display: flex;
+    justify-content: space-between;  /* Push title left, buttons right */
+    align-items: center;             /* Vertically centre the items */
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;                 /* Wrap to next line if not enough space */
+    gap: 1rem;                       /* Space between wrapped items */
+}
+
+.page-header h1 {
+    margin: 0;
+    font-size: 1.75rem;
+    color: var(--mj-primary-dark);
+}
+
+
+/* =========================================================================
+   SECTION 5: FLASH MESSAGES
+   =========================================================================
+   Flask flash messages are the server-side equivalent of V1's JavaScript
+   toast notifications. They work differently:
+
+   - V1 (SPA): JavaScript creates a toast element and animates it in/out
+   - V2 (Jinja): Flask stores a message in the session, and the next
+     page load renders it in base.html — no JavaScript needed
+
+   Each flash category (success, error, warning, message) has its own
+   colour scheme. The left border provides a colour accent that draws
+   attention without being overwhelming.
+   ========================================================================= */
+.flash-success {
+    background: #e8f5e9;            /* Very light green background */
+    border-left: 4px solid var(--mj-success);  /* Green accent bar */
+    color: #2e7d32;                 /* Dark green text for readability */
+    padding: 0.75rem 1rem;
+    border-radius: var(--mj-radius);
+    margin-bottom: 1rem;
+}
+
+.flash-error {
+    background: #ffebee;            /* Very light red background */
+    border-left: 4px solid var(--mj-danger);   /* Red accent bar */
+    color: #c62828;                 /* Dark red text */
+    padding: 0.75rem 1rem;
+    border-radius: var(--mj-radius);
+    margin-bottom: 1rem;
+}
+
+.flash-warning {
+    background: #fff8e1;            /* Very light amber background */
+    border-left: 4px solid var(--mj-warning);  /* Amber accent bar */
+    color: #ef6c00;                 /* Dark amber text */
+    padding: 0.75rem 1rem;
+    border-radius: var(--mj-radius);
+    margin-bottom: 1rem;
+}
+
+/* Default flash category — used when flash('message', 'Some info') is called */
+.flash-message {
+    background: #e3f2fd;            /* Very light blue background */
+    border-left: 4px solid var(--mj-info);     /* Blue accent bar */
+    color: #1565c0;                 /* Dark blue text */
+    padding: 0.75rem 1rem;
+    border-radius: var(--mj-radius);
+    margin-bottom: 1rem;
+}
+
+
+/* =========================================================================
+   SECTION 6: DASHBOARD CARDS
+   =========================================================================
+   Summary statistic cards use CSS Grid for a responsive layout.
+   Grid is ideal here because we want equal-width columns that
+   automatically reflow based on available space.
+
+   repeat(auto-fit, minmax(200px, 1fr)) means:
+   - Each column is at least 200px wide
+   - Columns expand equally to fill the row (1fr = 1 fraction)
+   - auto-fit creates as many columns as will fit
+   ========================================================================= */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;                       /* Space between cards */
+    margin-bottom: 2rem;
+}
+
+/* Individual stat card — white box with left border accent */
+.stat-card {
+    background: white;
+    border-radius: var(--mj-radius);
+    padding: 1.25rem;
+    box-shadow: var(--mj-shadow);
+    text-align: center;
+    border-left: 4px solid var(--mj-primary);  /* Coloured accent bar */
+    transition: transform 0.15s ease;          /* Smooth hover animation */
+}
+
+/* Lift the card slightly on hover — gives a "clickable" feel */
+.stat-card:hover {
+    transform: translateY(-2px);     /* Move up 2 pixels */
+}
+
+/* Large number display inside the card */
+.stat-card .stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--mj-primary-dark);
+    line-height: 1.2;                /* Tighter line spacing for large numbers */
+}
+
+/* Description text below the number */
+.stat-card .stat-label {
+    font-size: 0.85rem;
+    color: #666;
+    margin-top: 0.25rem;
+}
+
+/* Variant cards — override the left border and number colour
+   to visually distinguish warning/danger/success metrics */
+.stat-card.warning {
+    border-left-color: var(--mj-warning);
+}
+
+.stat-card.warning .stat-value {
+    color: #e65100;
+}
+
+.stat-card.danger {
+    border-left-color: var(--mj-danger);
+}
+
+.stat-card.danger .stat-value {
+    color: var(--mj-danger);
+}
+
+.stat-card.success {
+    border-left-color: var(--mj-success);
+}
+
+.stat-card.success .stat-value {
+    color: #2e7d32;
+}
+
+
+/* =========================================================================
+   SECTION 7: CHARTS GRID
+   =========================================================================
+   Same auto-fit grid pattern as the stats cards, but with larger
+   minimum widths (350px) because charts need more horizontal space. */
+.charts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+/* White card wrapper for each chart */
+.chart-container {
+    background: white;
+    border-radius: var(--mj-radius);
+    padding: 1.25rem;
+    box-shadow: var(--mj-shadow);
+}
+
+.chart-container h3 {
+    margin-top: 0;
+    font-size: 1rem;
+    color: var(--mj-primary-dark);
+    margin-bottom: 1rem;
+}
+
+/* Prevent charts from growing too tall */
+.chart-container canvas {
+    max-height: 280px;
+}
+
+
+/* =========================================================================
+   SECTION 8: FILTER BAR
+   =========================================================================
+   A horizontal row of search input and filter dropdowns using Flexbox.
+   flex-wrap ensures filters wrap to the next line on smaller screens. */
+.filter-bar {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;                 /* Wrap to next line on narrow screens */
+    align-items: flex-end;           /* Align bottoms (important for labels) */
+}
+
+/* Remove Pico's default bottom margin on form elements inside the filter bar */
+.filter-bar select,
+.filter-bar input {
+    margin-bottom: 0;
+    min-width: 150px;
+}
+
+/* The search input grows to fill available space (flex: 1) */
+.filter-bar .filter-input {
+    flex: 1;
+    min-width: 200px;
+}
+
+
+/* =========================================================================
+   SECTION 9: DATA TABLES
+   =========================================================================
+   Pico CSS handles most table styling. We add:
+   - Slightly smaller font for data density
+   - Light grey header background
+   - Compact action buttons
+
+   In V2, table action buttons can also be <a> links (for page navigation)
+   unlike V1 where everything is handled by JavaScript event listeners.
+   ========================================================================= */
+table {
+    font-size: 0.9rem;
+}
+
+table th {
+    background: var(--mj-bg-light);  /* Light grey background */
+    font-weight: 600;                /* Semi-bold */
+    white-space: nowrap;             /* Prevent header text from wrapping */
+}
+
+table td {
+    vertical-align: middle;          /* Vertically centre cell content */
+}
+
+/* Action buttons inside table cells.
+   Targets both <button> and <a> elements (V2 uses anchor links
+   for navigation like "View" and "Edit" which go to separate pages). */
+.table-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.table-actions button,
+.table-actions a {
+    padding: 0.3rem 0.6rem;          /* Smaller padding than default buttons */
+    font-size: 0.8rem;
+    margin: 0;
+}
+
+
+/* =========================================================================
+   SECTION 10: STATUS & PRIORITY BADGES
+   =========================================================================
+   Pill-shaped labels that colour-code task statuses and priorities.
+   Each badge class maps to a status or priority value from the database.
+
+   The naming convention matches the database values directly:
+   .badge-open        → status = 'open'
+   .badge-in_progress → status = 'in_progress'
+   .badge-high        → priority = 'high'
+   .badge-active      → client status = 'active'
+
+   Colours follow a traffic-light pattern:
+   - Green  = positive (completed, low priority, active)
+   - Amber  = caution (in progress, medium priority)
+   - Red    = attention needed (urgent, danger)
+   - Grey   = neutral (cancelled, inactive)
+   ========================================================================= */
+.badge {
+    display: inline-block;           /* Allows padding and border-radius */
+    padding: 0.2rem 0.6rem;
+    border-radius: 1rem;             /* Pill shape */
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: capitalize;      /* First letter uppercase */
+    white-space: nowrap;             /* Never wrap badge text */
+}
+
+/* Task status badges */
+.badge-open { background: #e3f2fd; color: #1565c0; }           /* Light blue */
+.badge-in_progress { background: #fff8e1; color: #ef6c00; }    /* Light amber */
+.badge-completed { background: #e8f5e9; color: #2e7d32; }      /* Light green */
+.badge-cancelled { background: #f5f5f5; color: #757575; }      /* Light grey */
+
+/* Task priority badges */
+.badge-low { background: #e8f5e9; color: #2e7d32; }            /* Green */
+.badge-medium { background: #fff8e1; color: #ef6c00; }         /* Amber */
+.badge-high { background: #fff3e0; color: #e65100; }           /* Orange */
+.badge-urgent { background: #ffebee; color: #c62828; }         /* Red */
+
+/* Client status badges */
+.badge-active { background: #e8f5e9; color: #2e7d32; }         /* Green */
+.badge-inactive { background: #f5f5f5; color: #757575; }       /* Grey */
+
+
+/* =========================================================================
+   SECTION 11: EMPTY STATE
+   =========================================================================
+   Shown when a table or list has no data (e.g. "No tasks found").
+   Provides a friendlier experience than an empty table. */
+.empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: #888;
+}
+
+.empty-state h3 {
+    color: #666;
+}
+
+
+/* =========================================================================
+   SECTION 12: ATTACHMENTS
+   =========================================================================
+   File attachment list on the task detail page. Uses Flexbox to put
+   the filename on the left and action buttons on the right. */
+.attachment-list {
+    list-style: none;                /* Remove bullet points */
+    padding: 0;
+    margin: 0;
+}
+
+.attachment-item {
+    display: flex;
+    justify-content: space-between;  /* Filename left, buttons right */
+    align-items: center;
+    padding: 0.5rem;
+    border-bottom: 1px solid #eee;   /* Divider between items */
+}
+
+/* Remove the bottom border from the last item.
+   :last-child is a pseudo-class that matches the final element
+   in a list of siblings. */
+.attachment-item:last-child {
+    border-bottom: none;
+}
+
+.attachment-info {
+    display: flex;
+    flex-direction: column;          /* Stack filename and metadata vertically */
+    gap: 0.15rem;
+}
+
+.attachment-name {
+    font-weight: 500;
+}
+
+/* Small grey text for file size and upload date */
+.attachment-meta {
+    font-size: 0.8rem;
+    color: #888;
+}
+
+
+/* =========================================================================
+   SECTION 13: LOGIN PAGE
+   =========================================================================
+   Centred login form — max-width: 400px keeps it narrow and readable.
+   auto left/right margins is a standard CSS technique for centring
+   a block element horizontally within its parent. */
+.login-container {
+    max-width: 400px;
+    margin: 4rem auto;               /* auto left/right margins = centred */
+    padding: 2rem;
+}
+
+.login-container h1 {
+    text-align: center;
+    color: var(--mj-primary-dark);
+    margin-bottom: 0.25rem;
+}
+
+.login-container .subtitle {
+    text-align: center;
+    color: #888;
+    margin-bottom: 2rem;
+}
+
+
+/* =========================================================================
+   SECTION 14: RESPONSIVE DESIGN
+   =========================================================================
+   Media queries apply styles only when the screen matches a condition.
+   We use max-width breakpoints to adjust the layout for smaller screens:
+
+   - 768px: tablets (iPad portrait) — stack filters vertically, reduce grid
+   - 480px: phones — single column layout, tighter padding
+
+   The approach is "desktop-first" — we write the desktop layout above,
+   then override specific properties for smaller screens here.
+   ========================================================================= */
+
+/* Tablets and smaller (screen width 768px or less) */
+@media (max-width: 768px) {
+    /* Stack page header vertically (title above button) */
+    .page-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    /* Stack filter controls vertically */
+    .filter-bar {
+        flex-direction: column;
+    }
+
+    .filter-bar select,
+    .filter-bar input {
+        min-width: 100%;             /* Full width on small screens */
+    }
+
+    /* Two-column grid for stat cards (instead of auto-fit) */
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    /* Single-column charts (they need horizontal space) */
+    .charts-grid {
+        grid-template-columns: 1fr;
+    }
+
+    /* Hide the right-side nav items (user info, logout) on small screens */
+    nav ul:last-child {
+        display: none;
+    }
+
+    /* Smaller table text to fit more columns */
+    table {
+        font-size: 0.8rem;
+    }
+}
+
+/* Phones (screen width 480px or less) */
+@media (max-width: 480px) {
+    /* Single-column stat cards on phones */
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+
+    /* Reduce side padding on very small screens */
+    main.container {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+}
+
+
+/* =========================================================================
+   SECTION 15: UTILITY CLASSES
+   =========================================================================
+   Small helper class for hiding elements.
+
+   .hidden uses !important to override any other display value —
+   it must ALWAYS hide the element regardless of other rules. */
+.hidden { display: none !important; }
+
+/* ============================================================================
+   SECTION 16: BUTTONS
+   ============================================================================
+   Pico CSS styles <button> elements automatically, but these custom classes
+   add colour variants and sizing.  The naming follows a common convention:
+   .btn = base, .btn-primary = brand colour, .btn-danger = red (destructive).
+   ============================================================================ */
+.btn {
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: var(--mj-radius);
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: none;
+    line-height: 1.5;
+    transition: background 0.15s ease, opacity 0.15s ease;
+}
+
+.btn-primary {
+    background: var(--mj-primary);
+    color: #ffffff;
+}
+
+.btn-primary:hover {
+    background: var(--mj-primary-light);
+    color: #ffffff;
+}
+
+.btn-secondary {
+    background: #6c757d;
+    color: #ffffff;
+}
+
+.btn-secondary:hover {
+    background: #5a6268;
+    color: #ffffff;
+}
+
+.btn-danger {
+    background: var(--mj-danger);
+    color: #ffffff;
+}
+
+.btn-danger:hover {
+    opacity: 0.85;
+}
+
+.btn-small {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8rem;
+}
+
+
+/* ============================================================================
+   SECTION 17: FORM LAYOUT
+   ============================================================================
+   .form-row creates a horizontal row of form fields using Flexbox.
+   .form-group is a wrapper for a label + input pair inside a row.
+   .form-input removes Pico's default bottom margin inside modals.
+   ============================================================================ */
+.form-row {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 0;
+}
+
+.form-row > .form-group {
+    flex: 1;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.form-input {
+    margin-bottom: 0.5rem;
+}
+
+
+/* ============================================================================
+   SECTION 18: MODALS (DIALOG)
+   ============================================================================
+   Pico CSS provides basic <dialog> styling.  These classes add padding,
+   max-width, and a backdrop overlay for a polished modal experience.
+   ============================================================================ */
+.modal {
+    border: none;
+    border-radius: var(--mj-radius);
+    padding: 2rem;
+    max-width: 600px;
+    width: 90vw;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+}
+
+.modal::backdrop {
+    background: rgba(0, 0, 0, 0.5);
+}
+
+.modal-actions {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: flex-end;
+    margin-top: 1.5rem;
+}
+
+
+/* ============================================================================
+   SECTION 19: DATA DISPLAY
+   ============================================================================
+   Classes for tables with action cells, detail cards on the task detail
+   page, and empty-message placeholders.
+   ============================================================================ */
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.actions-cell {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.actions-cell form {
+    margin: 0;                       /* Reset Pico's default form margin */
+}
+
+.actions-cell button,
+.actions-cell .btn {
+    margin: 0;                       /* Ensure all buttons sit on the same line */
+}
+
+.detail-card {
+    background: white;
+    border-radius: var(--mj-radius);
+    padding: 1.5rem;
+    box-shadow: var(--mj-shadow);
+    margin-bottom: 2rem;
+}
+
+.detail-row {
+    display: flex;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #eee;
+    gap: 1rem;
+}
+
+.detail-row:last-child {
+    border-bottom: none;
+}
+
+.detail-row strong {
+    min-width: 140px;
+    color: #555;
+}
+
+.empty-message {
+    text-align: center;
+    color: #888;
+    padding: 1.5rem;
+    font-style: italic;
+}
+
+
+/* ============================================================================
+   SECTION 20: UPLOAD & ATTACHMENTS
+   ============================================================================
+   Styles for the file upload form and the attachments section on the
+   task detail page.
+   ============================================================================ */
+.upload-form {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-end;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.attachments-section {
+    margin-top: 2rem;
+}
+
+.attachments-section h2 {
+    font-size: 1.25rem;
+    color: var(--mj-primary-dark);
+    margin-bottom: 1rem;
+}
+
+
+/* ============================================================================
+   SECTION 21: STATUS FORM (INLINE)
+   ============================================================================
+   The inline status-change dropdown in the task table row.
+   ============================================================================ */
+.status-form {
+    display: inline-flex;
+    align-items: center;
+}
+
+.status-select {
+    padding: 0.2rem 0.4rem;
+    font-size: 0.8rem;
+    margin: 0;
+    min-width: 120px;
+}
+
+
+/* ============================================================================
+   SECTION 22: FILTER SELECT
+   ============================================================================
+   Dropdown selects inside the filter bar.
+   ============================================================================ */
+.filter-select {
+    min-width: 150px;
+}
