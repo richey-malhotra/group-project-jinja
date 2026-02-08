@@ -1,0 +1,299 @@
+{% extends "base.html" %}
+
+{% block title %}
+  {% if role == "staff" %}My Tasks{% else %}Task Management{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>{% if role == "staff" %}My Tasks{% else %}Task Management{% endif %}</h1>
+  {% if role in ("admin", "manager") %}
+    <button class="btn btn-primary" onclick="document.getElementById('create-modal').showModal()">
+      + New Task
+    </button>
+  {% endif %}
+</div>
+
+<!-- ============================================================
+     FILTER / SEARCH BAR
+     Uses GET method — filter values appear in the URL as query
+     parameters, making filtered views bookmarkable and shareable.
+     No JavaScript needed: the form submits to the same page.
+     ============================================================ -->
+<form method="GET" action="{{ url_for('tasks.task_list') }}" class="filter-bar">
+  <input type="text" name="search" placeholder="Search title or description…"
+         value="{{ filters.search }}" class="filter-input">
+
+  <select name="status" class="filter-select">
+    <option value="">All Statuses</option>
+    {% for s in ["open", "in_progress", "completed", "cancelled"] %}
+      <option value="{{ s }}" {% if filters.status == s %}selected{% endif %}>
+        {{ s | replace("_", " ") | title }}
+      </option>
+    {% endfor %}
+  </select>
+
+  <select name="priority" class="filter-select">
+    <option value="">All Priorities</option>
+    {% for p in ["low", "medium", "high", "urgent"] %}
+      <option value="{{ p }}" {% if filters.priority == p %}selected{% endif %}>
+        {{ p | title }}
+      </option>
+    {% endfor %}
+  </select>
+
+  <select name="department" class="filter-select">
+    <option value="">All Departments</option>
+    {% for d in ["Administration", "Client Services", "Finance", "HR", "Management & Strategy"] %}
+      <option value="{{ d }}" {% if filters.department == d %}selected{% endif %}>
+        {{ d }}
+      </option>
+    {% endfor %}
+  </select>
+
+  <button type="submit" class="btn btn-secondary">Filter</button>
+  <a href="{{ url_for('tasks.task_list') }}" class="btn btn-secondary">Clear</a>
+</form>
+
+<!-- ============================================================
+     TASK TABLE
+     Server-rendered: every row is already in the HTML. No fetch(),
+     no JSON parsing, no DOM manipulation. The browser receives
+     the complete page.
+     ============================================================ -->
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Title</th>
+      <th>Status</th>
+      <th>Priority</th>
+      <th>Department</th>
+      <th>Assigned To</th>
+      <th>Client</th>
+      <th>Due Date</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for task in tasks %}
+      <tr>
+        <td>{{ task.id }}</td>
+        <td>{{ task.title }}</td>
+        <td><span class="badge badge-{{ task.status }}">{{ task.status | replace("_", " ") | title }}</span></td>
+        <td><span class="badge badge-{{ task.priority }}">{{ task.priority | title }}</span></td>
+        <td>{{ task.department }}</td>
+        <td>{{ task.assigned_name or "Unassigned" }}</td>
+        <td>{{ task.client_name or "—" }}</td>
+        <td>{{ task.due_date or "—" }}</td>
+        <td class="actions-cell">
+          {% if role in ("admin", "manager") %}
+            <!-- Edit button opens a pre-filled modal -->
+            <button class="btn btn-small"
+                    onclick="openEditModal({{ task.id }}, {{ task.title | tojson }}, {{ task.description | default('', true) | tojson }}, {{ task.status | tojson }}, {{ task.priority | tojson }}, {{ task.department | tojson }}, {{ (task.assigned_to or '') | string | tojson }}, {{ (task.client_id or '') | string | tojson }}, {{ (task.due_date or '') | tojson }})">
+              Edit
+            </button>
+            <!-- Delete form with confirmation -->
+            <form method="POST" action="{{ url_for('tasks.delete_task', task_id=task.id) }}"
+                  onsubmit="return confirm('Delete this task?')" style="display:inline">
+              <button type="submit" class="btn btn-small btn-danger">Delete</button>
+            </form>
+          {% endif %}
+
+          <!-- All roles can update status on their own tasks -->
+          <form method="POST" action="{{ url_for('tasks.update_task_status', task_id=task.id) }}"
+                style="display:inline" class="status-form">
+            <select name="status" onchange="this.form.submit()" class="status-select">
+              {% for s in ["open", "in_progress", "completed", "cancelled"] %}
+                <option value="{{ s }}" {% if task.status == s %}selected{% endif %}>
+                  {{ s | replace("_", " ") | title }}
+                </option>
+              {% endfor %}
+            </select>
+          </form>
+        </td>
+      </tr>
+    {% else %}
+      <tr>
+        <td colspan="9" class="empty-message">No tasks found. Adjust filters or create a new task.</td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<!-- ============================================================
+     CREATE TASK MODAL (admin/manager only)
+     Uses the HTML <dialog> element — no JavaScript library needed.
+     The form POSTs to /tasks/create, which redirects back here.
+     ============================================================ -->
+{% if role in ("admin", "manager") %}
+<dialog id="create-modal" class="modal">
+  <form method="POST" action="{{ url_for('tasks.create_task') }}">
+    <h2>Create New Task</h2>
+
+    <label for="create-title">Title *</label>
+    <input type="text" id="create-title" name="title" required class="form-input">
+
+    <label for="create-desc">Description</label>
+    <textarea id="create-desc" name="description" rows="3" class="form-input"></textarea>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label for="create-status">Status</label>
+        <select id="create-status" name="status" class="form-input">
+          <option value="open" selected>Open</option>
+          <option value="in_progress">In Progress</option>
+          <option value="completed">Completed</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="create-priority">Priority</label>
+        <select id="create-priority" name="priority" class="form-input">
+          <option value="low">Low</option>
+          <option value="medium" selected>Medium</option>
+          <option value="high">High</option>
+          <option value="urgent">Urgent</option>
+        </select>
+      </div>
+    </div>
+
+    <label for="create-dept">Department *</label>
+    <select id="create-dept" name="department" required class="form-input">
+      <option value="">Select…</option>
+      <option value="Finance">Finance</option>
+      <option value="Client Services">Client Services</option>
+      <option value="HR">HR</option>
+      <option value="Management &amp; Strategy">Management & Strategy</option>
+      <option value="Administration">Administration</option>
+    </select>
+
+    <label for="create-assigned">Assign To</label>
+    <select id="create-assigned" name="assigned_to" class="form-input">
+      <option value="">Unassigned</option>
+      {% for user in users %}
+        <option value="{{ user.id }}">{{ user.full_name }} ({{ user.role }})</option>
+      {% endfor %}
+    </select>
+
+    <label for="create-client">Client</label>
+    <select id="create-client" name="client_id" class="form-input">
+      <option value="">None</option>
+      {% for client in clients %}
+        <option value="{{ client.id }}">{{ client.company_name }}</option>
+      {% endfor %}
+    </select>
+
+    <label for="create-due">Due Date</label>
+    <input type="date" id="create-due" name="due_date" class="form-input">
+
+    <div class="modal-actions">
+      <button type="submit" class="btn btn-primary">Create Task</button>
+      <button type="button" class="btn btn-secondary"
+              onclick="document.getElementById('create-modal').close()">Cancel</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ============================================================
+     EDIT TASK MODAL (admin/manager only)
+     Populated via a small JavaScript function that fills the form
+     fields. This is the ONLY JavaScript on the page — everything
+     else is server-rendered.
+     ============================================================ -->
+<dialog id="edit-modal" class="modal">
+  <form method="POST" id="edit-form">
+    <h2>Edit Task</h2>
+
+    <label for="edit-title">Title *</label>
+    <input type="text" id="edit-title" name="title" required class="form-input">
+
+    <label for="edit-desc">Description</label>
+    <textarea id="edit-desc" name="description" rows="3" class="form-input"></textarea>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label for="edit-status">Status</label>
+        <select id="edit-status" name="status" class="form-input">
+          <option value="open">Open</option>
+          <option value="in_progress">In Progress</option>
+          <option value="completed">Completed</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="edit-priority">Priority</label>
+        <select id="edit-priority" name="priority" class="form-input">
+          <option value="low">Low</option>
+          <option value="medium">Medium</option>
+          <option value="high">High</option>
+          <option value="urgent">Urgent</option>
+        </select>
+      </div>
+    </div>
+
+    <label for="edit-dept">Department *</label>
+    <select id="edit-dept" name="department" required class="form-input">
+      <option value="">Select…</option>
+      <option value="Finance">Finance</option>
+      <option value="Client Services">Client Services</option>
+      <option value="HR">HR</option>
+      <option value="Management &amp; Strategy">Management & Strategy</option>
+      <option value="Administration">Administration</option>
+    </select>
+
+    <label for="edit-assigned">Assign To</label>
+    <select id="edit-assigned" name="assigned_to" class="form-input">
+      <option value="">Unassigned</option>
+      {% for user in users %}
+        <option value="{{ user.id }}">{{ user.full_name }} ({{ user.role }})</option>
+      {% endfor %}
+    </select>
+
+    <label for="edit-client">Client</label>
+    <select id="edit-client" name="client_id" class="form-input">
+      <option value="">None</option>
+      {% for client in clients %}
+        <option value="{{ client.id }}">{{ client.company_name }}</option>
+      {% endfor %}
+    </select>
+
+    <label for="edit-due">Due Date</label>
+    <input type="date" id="edit-due" name="due_date" class="form-input">
+
+    <div class="modal-actions">
+      <button type="submit" class="btn btn-primary">Save Changes</button>
+      <button type="button" class="btn btn-secondary"
+              onclick="document.getElementById('edit-modal').close()">Cancel</button>
+    </div>
+  </form>
+</dialog>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if role in ("admin", "manager") %}
+<script>
+  /**
+   * Populate the edit modal with existing task data.
+   *
+   * This is the ONLY client-side JavaScript in the task management
+   * page. It fills form fields so the user can see current values
+   * before editing. The actual save is a standard form POST —
+   * no fetch() or JSON involved.
+   */
+  function openEditModal(id, title, description, status, priority, department, assignedTo, clientId, dueDate) {
+    document.getElementById("edit-form").action = "/tasks/" + id + "/edit";
+    document.getElementById("edit-title").value = title;
+    document.getElementById("edit-desc").value = description;
+    document.getElementById("edit-status").value = status;
+    document.getElementById("edit-priority").value = priority;
+    document.getElementById("edit-dept").value = department;
+    document.getElementById("edit-assigned").value = assignedTo;
+    document.getElementById("edit-client").value = clientId;
+    document.getElementById("edit-due").value = dueDate;
+    document.getElementById("edit-modal").showModal();
+  }
+</script>
+{% endif %}
+{% endblock %}
